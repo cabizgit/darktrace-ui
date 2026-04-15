@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DarkTrace UI — Cyber Intelligence Dashboard</title>
+  <meta name="description" content="DarkTrace UI — Real-time cybersecurity OSINT dashboard simulator.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%230a0e17' width='100' height='100' rx='16'/%3E%3Ctext x='50' y='65' text-anchor='middle' fill='%2300ff88' font-family='monospace' font-weight='700' font-size='40'%3EDT%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+  <!-- Scanlines overlay -->
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">
+        <span class="logo-icon">&#9632;</span>
+        <span class="logo-text">DARK<span class="accent">TRACE</span></span>
+        <span class="logo-version">v2.4.1</span>
+      </div>
+    </div>
+    <div class="header-center">
+      <span class="header-status" id="header-status">
+        <span class="status-dot idle"></span>
+        <span>SYSTEM IDLE</span>
+      </span>
+    </div>
+    <div class="header-right">
+      <span class="header-clock" id="header-clock">00:00:00</span>
+      <button id="audio-toggle" class="header-btn" aria-label="Toggle audio" title="Toggle scan audio">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Landing / Input Screen -->
+  <main id="landing" class="landing">
+    <div class="landing-content">
+      <div class="landing-logo">
+        <div class="glitch-text" data-text="DARKTRACE">DARKTRACE</div>
+        <p class="landing-sub">Cyber Intelligence &amp; OSINT Dashboard</p>
+      </div>
+
+      <form id="scan-form" class="scan-form" autocomplete="off">
+        <div class="input-group">
+          <label for="target-input" class="input-label">TARGET</label>
+          <div class="input-wrapper">
+            <span class="input-prefix">&gt;_</span>
+            <input
+              type="text"
+              id="target-input"
+              class="scan-input"
+              placeholder="Enter domain, username, or IP address..."
+              required
+              spellcheck="false"
+            >
+          </div>
+        </div>
+
+        <div class="scan-options">
+          <label class="option-chip active" data-type="domain">
+            <input type="radio" name="scan-type" value="domain" checked>
+            <span class="chip-dot"></span> Domain
+          </label>
+          <label class="option-chip" data-type="username">
+            <input type="radio" name="scan-type" value="username">
+            <span class="chip-dot"></span> Username
+          </label>
+          <label class="option-chip" data-type="ip">
+            <input type="radio" name="scan-type" value="ip">
+            <span class="chip-dot"></span> IP Address
+          </label>
+        </div>
+
+        <div class="scan-mode">
+          <label class="mode-toggle">
+            <input type="checkbox" id="deep-scan">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="mode-label">Deep Scan Mode</span>
+          </label>
+        </div>
+
+        <button type="submit" class="scan-btn" id="scan-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span>INITIATE SCAN</span>
+        </button>
+      </form>
+
+      <div class="landing-footer">
+        <span>Simulated OSINT Analysis</span>
+        <span>&bull;</span>
+        <span>No real data is collected</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Dashboard -->
+  <main id="dashboard" class="dashboard hidden">
+
+    <!-- Scan Progress -->
+    <div id="scan-overlay" class="scan-overlay hidden">
+      <div class="scan-terminal" id="scan-terminal"></div>
+      <div class="scan-progress-bar">
+        <div class="scan-progress-fill" id="scan-progress-fill"></div>
+      </div>
+      <p class="scan-progress-text" id="scan-progress-text">Initializing scan...</p>
+    </div>
+
+    <!-- Dashboard Top Bar -->
+    <div class="dash-topbar">
+      <div class="dash-target">
+        <span class="dash-label">TARGET</span>
+        <span class="dash-value" id="dash-target">—</span>
+      </div>
+      <div class="dash-meta">
+        <span class="dash-tag" id="dash-type">DOMAIN</span>
+        <span class="dash-tag" id="dash-mode">STANDARD</span>
+        <span class="dash-tag risk" id="dash-risk">RISK: —</span>
+      </div>
+      <button class="new-scan-btn" id="new-scan-btn">NEW SCAN</button>
+    </div>
+
+    <!-- Dashboard Grid -->
+    <div class="dash-grid">
+
+      <!-- Subdomains -->
+      <section class="panel" id="panel-subdomains">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#9670;</span> Subdomains Discovered</h2>
+          <span class="panel-count" id="subdomain-source" style="display:none;">LIVE</span>
+          <span class="panel-count" id="subdomain-count">0</span>
+        </div>
+        <div class="panel-body" id="subdomain-list"></div>
+      </section>
+
+      <!-- Tech Stack -->
+      <section class="panel" id="panel-techstack">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#9881;</span> Tech Stack Detection</h2>
+        </div>
+        <div class="panel-body" id="techstack-list"></div>
+      </section>
+
+      <!-- Risk Alerts -->
+      <section class="panel panel-alerts" id="panel-alerts">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#9888;</span> Risk Alerts</h2>
+          <span class="panel-count alert-count" id="alert-count">0</span>
+        </div>
+        <div class="panel-body" id="alert-list"></div>
+      </section>
+
+      <!-- Network Activity Chart -->
+      <section class="panel panel-chart" id="panel-network">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#9783;</span> Network Activity</h2>
+          <span class="panel-live">LIVE</span>
+        </div>
+        <div class="panel-body chart-container">
+          <canvas id="network-chart"></canvas>
+        </div>
+      </section>
+
+      <!-- Threat Distribution -->
+      <section class="panel panel-chart-sm" id="panel-threats">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#9733;</span> Threat Distribution</h2>
+        </div>
+        <div class="panel-body chart-container">
+          <canvas id="threat-chart"></canvas>
+        </div>
+      </section>
+
+      <!-- Activity Feed -->
+      <section class="panel panel-feed" id="panel-feed">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#9655;</span> Live Activity Feed</h2>
+          <span class="panel-live">LIVE</span>
+        </div>
+        <div class="panel-body feed-scroll" id="activity-feed"></div>
+      </section>
+
+      <!-- Leaked Data Simulation -->
+      <section class="panel" id="panel-leaks">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#9888;</span> Data Exposure Simulation</h2>
+          <span class="panel-count leak-count" id="leak-count">0</span>
+        </div>
+        <div class="panel-body" id="leak-list"></div>
+      </section>
+
+      <!-- DNS Records (real) -->
+      <section class="panel" id="panel-dns">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#9741;</span> DNS Records</h2>
+          <span class="panel-count" id="dns-source" style="background:rgba(0,180,255,0.15);color:#00b4ff;">LIVE</span>
+        </div>
+        <div class="panel-body" id="dns-list"></div>
+      </section>
+
+      <!-- IP Info (real) -->
+      <section class="panel" id="panel-ipinfo">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#9678;</span> IP Intelligence</h2>
+        </div>
+        <div class="panel-body" id="ipinfo-list"></div>
+      </section>
+
+      <!-- Port Scan -->
+      <section class="panel" id="panel-ports">
+        <div class="panel-header">
+          <h2 class="panel-title"><span class="panel-icon">&#8631;</span> Open Ports</h2>
+          <span class="panel-count" id="ports-source" style="background:rgba(255,213,0,0.15);color:#ffd500;">SIM</span>
+        </div>
+        <div class="panel-body" id="port-list"></div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Scripts -->
+  <script src="js/data-generator.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
